@@ -1,7 +1,8 @@
 <script>
 	import { extent, format, line, max, scaleLinear } from 'd3';
 
-	let { data = [], measure = 'fatalities', xDomain, highlightedYear = null } = $props();
+	const chartId = $props.id();
+	let { data = [], measure = 'fatalities', xDomain = null, highlightedYear = null } = $props();
 	let containerWidth = $state(640);
 	let width = $derived(Math.max(containerWidth, 280));
 	let height = $derived(width < 500 ? 230 : 360);
@@ -15,19 +16,25 @@
 	let yScale = $derived(scaleLinear()
 		.domain([0, max(data, (d) => d[measure]) || 1]).nice()
 		.range([height - margin.bottom, margin.top]));
-	let xTicks = $derived(xScale.ticks(width < 500 ? 4 : 6));
+	let xTicks = $derived(xScale.ticks(width < 500 ? 4 : 6).filter(Number.isInteger));
 	let yTicks = $derived(yScale.ticks(4));
 	let path = $derived(line()
 		.defined((d) => Number.isFinite(d.year) && Number.isFinite(d[measure]))
 		.x((d) => xScale(d.year))
 		.y((d) => yScale(d[measure]))(data));
-	let highlighted = $derived(data.filter((d) => d.year === highlightedYear));
+	let highlighted = $derived(data.filter((d) => d.year === highlightedYear
+		&& d.year >= xScale.domain()[0] && d.year <= xScale.domain()[1]));
 </script>
 
 <div class="chart" bind:clientWidth={containerWidth}>
 	<svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${label} by year in the United States`}>
 		<title>{label} by year</title>
 		<desc>A line chart of annual U.S. traffic {isRate ? 'death rates per 100 million vehicle-miles traveled' : 'deaths'}. The vertical axis starts at zero. The 2024 figures are preliminary.</desc>
+		<defs>
+			<clipPath id={`${chartId}-plot`}>
+				<rect x={margin.left} y={margin.top} width={width - margin.left - margin.right} height={height - margin.top - margin.bottom} />
+			</clipPath>
+		</defs>
 		<text class="axis-label" x={margin.left} y="18">{label}</text>
 		{#each yTicks as value (value)}
 			<g transform={`translate(0, ${yScale(value)})`}>
@@ -44,7 +51,7 @@
 			</g>
 		{/each}
 		<text class="axis-label" x={(margin.left + width - margin.right) / 2} y={height - 3} text-anchor="middle">Year</text>
-		<path class="data-line" d={path ?? ''} />
+		<path class="data-line" d={path ?? ''} clip-path={`url(#${chartId}-plot)`} />
 		{#each highlighted as point (point.year)}
 			<g transform={`translate(${xScale(point.year)}, ${yScale(point[measure])})`}>
 				<circle r="5" />
