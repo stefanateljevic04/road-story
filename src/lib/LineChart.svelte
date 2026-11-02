@@ -2,7 +2,7 @@
 	import { extent, format, line, max, scaleLinear } from 'd3';
 
 	const chartId = $props.id();
-	let { data = [], measure = 'fatalities', xDomain = null, highlightedYear = null } = $props();
+	let { data = [], measure = 'fatalities', xDomain = null, highlightedYear = null, annotation = null } = $props();
 	let containerWidth = $state(640);
 	let width = $derived(Math.max(containerWidth, 280));
 	let height = $derived(width < 500 ? 230 : 360);
@@ -24,16 +24,25 @@
 		.y((d) => yScale(d[measure]))(data));
 	let highlighted = $derived(data.filter((d) => d.year === highlightedYear
 		&& d.year >= xScale.domain()[0] && d.year <= xScale.domain()[1]));
+	let annotationPoint = $derived(annotation ? data.find((d) => d.year === annotation.year
+		&& d.year >= xScale.domain()[0] && d.year <= xScale.domain()[1]) : null);
+	let annotationX = $derived(annotationPoint ? Math.max(margin.left + 8, xScale(annotationPoint.year) - 240) : 0);
+	let annotationY = $derived(annotationPoint ? Math.max(margin.top + 18, yScale(annotationPoint[measure]) - 85) : 0);
 </script>
 
 <div class="chart" bind:clientWidth={containerWidth}>
 	<svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${label} by year in the United States`}>
 		<title>{label} by year</title>
-		<desc>A line chart of annual U.S. traffic {isRate ? 'death rates per 100 million vehicle-miles traveled' : 'deaths'}. The vertical axis starts at zero. The 2024 figures are preliminary.</desc>
+		<desc>A line chart of annual U.S. traffic {isRate ? 'death rates per 100 million vehicle-miles traveled' : 'deaths'}. The vertical axis starts at zero. The 2024 figures are preliminary. {annotationPoint ? annotation.lines.join('. ') : ''}</desc>
 		<defs>
 			<clipPath id={`${chartId}-plot`}>
 				<rect x={margin.left} y={margin.top} width={width - margin.left - margin.right} height={height - margin.top - margin.bottom} />
 			</clipPath>
+			{#if annotationPoint}
+				<marker id={`${chartId}-arrow`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto" markerUnits="userSpaceOnUse">
+					<path class="arrowhead" d="M0,0 L8,4 L0,8 Z" />
+				</marker>
+			{/if}
 		</defs>
 		<text class="axis-label" x={margin.left} y="18">{label}</text>
 		{#each yTicks as value (value)}
@@ -58,6 +67,16 @@
 				<text class="point-label" x={point.year > xScale.domain()[0] + (xScale.domain()[1] - xScale.domain()[0]) / 2 ? -10 : 10} y="-13" text-anchor={point.year > xScale.domain()[0] + (xScale.domain()[1] - xScale.domain()[0]) / 2 ? 'end' : 'start'}>{point.year}: {valueFormat(point[measure])}</text>
 			</g>
 		{/each}
+		{#if annotationPoint}
+			<g class="comparison-annotation">
+				<path class="annotation-arrow" d={`M${annotationX + 100},${annotationY + 42} L${xScale(annotationPoint.year) - 5},${yScale(annotationPoint[measure]) - 5}`} marker-end={`url(#${chartId}-arrow)`} />
+				<text class="annotation-label" x={annotationX} y={annotationY}>
+					{#each annotation.lines as text, index}
+						<tspan x={annotationX} dy={index === 0 ? 0 : 16}>{text}</tspan>
+					{/each}
+				</text>
+			</g>
+		{/if}
 	</svg>
 	<details>
 		<summary>View annual values</summary>
@@ -85,6 +104,9 @@
 	.data-line { fill: none; stroke: #285c58; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 	circle { fill: #b34425; stroke: #fffef9; stroke-width: 2; }
 	.point-label { fill: #95391f; font-weight: 700; paint-order: stroke; stroke: #fffef9; stroke-width: 4px; stroke-linejoin: round; }
+	.annotation-label { fill: #95391f; font-weight: 600; paint-order: stroke; stroke: #fffef9; stroke-width: 4px; stroke-linejoin: round; }
+	.annotation-arrow { fill: none; stroke: #95391f; stroke-width: 1.5; }
+	.arrowhead { fill: #95391f; }
 	details { margin-top: 8px; font-size: 0.75rem; color: #506362; }
 	summary { cursor: pointer; width: fit-content; }
 	.table-scroll { max-height: 180px; overflow: auto; margin-top: 10px; }

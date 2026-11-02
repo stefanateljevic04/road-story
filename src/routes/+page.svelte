@@ -47,16 +47,32 @@
 			narration: 'Now the chart shows deaths per 100 million miles driven instead of the total number of deaths each year. Accounting for how much driving took place gives us a different view of the long-term pattern. The 2024 rate is preliminary.'
 		},
 		{
-			// Change only the highlighted year: mark 2022 on the rate chart.
+			// Change only the annotation: compare the 2022 rate with the 2014 low.
 			title: 'Resolution',
-			measure: 'rate_per_100m_vmt', xDomain: null, highlightedYear: 2022,
-			narration: 'With 2022 highlighted, we are still looking at deaths per 100 million miles driven. This rate and the total number of deaths measure different aspects of road safety. Understanding both gives us a more complete picture.'
+			measure: 'rate_per_100m_vmt', xDomain: null, highlightedYear: null,
+			comparison: { year: 2022, baselineYear: 2014 },
+			narration: 'In 2022, the rate was 1.34 deaths per 100 million miles driven, about 24% above the 2014 low of 1.08. Despite the long-term decline in deaths per mile, the rate remained above that earlier low.'
 		}
 	];
 	let scene = $derived(scenes[step]);
 	let measure = $derived(scene.measure);
 	let xDomain = $derived(scene.xDomain);
 	let highlightedYear = $derived(scene.highlightedYear);
+	let annotation = $derived.by(() => {
+		if (!scene.comparison) return null;
+		const point = data.find((row) => row.year === scene.comparison.year);
+		const baseline = data.find((row) => row.year === scene.comparison.baselineYear);
+		if (!point || !baseline) return null;
+		const increase = Math.round((point[measure] / baseline[measure] - 1) * 100);
+		return {
+			year: point.year,
+			lines: [
+				`${point.year}: ${increase}% above ${baseline.year}`,
+				`${point[measure].toFixed(2)} vs ${baseline[measure].toFixed(2)} deaths`,
+				'per 100 million miles'
+			]
+		};
+	});
 
 	onMount(() => {
 		const controller = new AbortController();
@@ -102,14 +118,14 @@
 </script>
 
 <svelte:head>
-	<title>Road Story | U.S. traffic deaths</title>
+	<title>Deaths per mile fell far more than total U.S. road deaths | Road Story</title>
 	<meta name="description" content="Annual U.S. motor-vehicle traffic deaths, shown as counts and deaths per 100 million vehicle-miles." />
 </svelte:head>
 
 <main>
 	<header>
 		<p class="eyebrow">Road Story / United States</p>
-		<h1>U.S. traffic deaths</h1>
+		<h1>Deaths per mile fell far more than total U.S. road deaths</h1>
 		<p class="intro">People killed in U.S. motor-vehicle traffic crashes each year.</p>
 	</header>
 
@@ -123,7 +139,7 @@
 				<div class="chart-card">
 					<p class="eyebrow">U.S. traffic deaths / {years}</p>
 					<h2>{measure === 'fatalities' ? 'The number of lives lost' : 'Deaths per 100 million vehicle-miles'}</h2>
-					<LineChart {data} {measure} {xDomain} {highlightedYear} />
+					<LineChart {data} {measure} {xDomain} {highlightedYear} {annotation} />
 					<p class="chart-note">2024 is a preliminary estimate. {measure === 'fatalities' ? 'This chart shows the annual count of deaths.' : 'This chart shows deaths per 100 million vehicle-miles traveled.'}</p>
 				</div>
 			{/if}
